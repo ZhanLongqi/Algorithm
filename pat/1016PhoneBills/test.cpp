@@ -1,141 +1,132 @@
 #include<iostream>
 #include<vector>
-#include<algorithm>
 #include<map>
+#include<algorithm>
 using namespace std;
-int toll[24],num;
+int price[24];
+int month=0;
 class record{
-    public:
-    string name;
-    string time;
-    string flag;
-    record(string n,string t,string f):name(n),time(t),flag(f){};
-    record(){};
+	public:
+		string name;
+		int time;
+		bool on;
+	record(){};
 };
 
-class data{
-    public:
-    string name;
-    string start_time;
-    string end_time;
-    data(string n,string s,string e):name(n),start_time(s),end_time(e){};
-    data(){};
+class bill{
+	public:
+	int start,end,fee;
 };
 
-bool comp(const record &r1,const record &r2){
-    int i=0;
-    for(int i=3;i<11;i++){
-        if(r1.time[i]!=r2.time[i]){
-            return r1.time[i]<r2.time[i];
-        }
-    }
-    return true;
+class user{
+	public:
+		string name;
+		vector<bill> bills;
+		float sum=0.f;
+		void f(record a,record b){
+			int start=a.time,end=b.time,fee=0;
+			while (start<end)
+			{
+				fee+= price[start%(24*60)/60];
+				start++;
+			}
+			bill t;
+			t.start=a.time;
+			t.end=b.time;	
+			t.fee=fee;
+			bills.push_back(t);
+			sum+=float(fee)/100.f;
+		}
+};
+
+int parse(){
+	int time[4];
+	scanf("%d:%d:%d:%d",&time[0],&time[1],&time[2],&time[3]);
+	month=time[0];
+	return time[1]*24*60+time[2]*60+time[3];
 }
 
-pair<int,float> calculate(data bill){
-    string start=bill.start_time,end=bill.end_time;
-    int dd1,hh1,mm1,dd2,hh2,mm2;
-    dd2=(end[3]-'0')*10+(end[4]-'0');
-    hh2=(end[6]-'0')*10+(end[7]-'0');
-    mm2=(end[9]-'0')*10+(end[10]-'0');
-    dd1=(start[3]-'0')*10+(start[4]-'0');
-    hh1=(start[6]-'0')*10+(start[7]-'0');
-    mm1=(start[9]-'0')*10+(start[10]-'0');
-    int borrow=0;
-    int count=0;
-    if(mm2<mm1){
-        count+=mm2+60-mm1;
-        borrow=1;
-    }
-    else{
-        count+=mm2-mm1;
-    }
-    if((hh2-borrow)<hh1){
-        count+=(hh2-borrow+24-hh1)*60;
-        borrow=1;
-    }
-    else{
-        count+=(hh2-borrow-hh1)*60;
-        borrow=0;
-    }
-    count+=(dd2-borrow-dd1)*24*60;
-    int newD=dd1,newH=hh1,newM=mm1;
-    int money=0;
-    if(hh1!=hh2||dd1!=dd2){
-    money+=(60-mm1)*toll[hh1];
-    dd1+=(hh1+1)/24;
-    hh1=(hh1+1)%24;
-    mm1=0;
-    //cout<<dd1<<" "<<dd2<<"  "<<hh1<<"  "<<hh2;
-    while(hh1!=hh2||dd1!=dd2){
-        money+=60*toll[hh1];
-        dd1+=(hh1+1)/24;
-        hh1=(hh1+1)%24;
-    }
-    money+=(mm2)*toll[hh2];}
-    else{
-        money+=(mm2-mm2)*toll[hh2];
-    }
-    float temp=money/100.f;
-    return {count,temp};
+bool cmp(record a,record b){
+	return a.time<b.time;
+}
+
+bool cmp2(user a,user b){
+	return a.name<b.name;
+}
+
+void reverse(int t,int * time){
+	time[0]=t/(24*60);
+	time[1]=t%(24*60)/60;
+	time[2]=t%60;
 }
 
 int main(){
+	int num_record;
+	for(int i=0;i<24;i++){
+		cin>>price[i];
+	}
+	cin>>num_record;
+	
+	vector<record> records;
+	for(int i=0;i<num_record;i++){
+		string name,on;
+		cin>>name;
+		int time=parse();
+		cin>>on;
+		record t;
+		t.name=name;
+		t.time=time;
+		t.on=(on=="on-line"?true:false);
+		records.push_back(t);
+	}
+	sort(records.begin(),records.end(),cmp);	
+	map<string,record> m;
+	map<string,user> b;
+	for(int i=0;i<num_record;i++){
+		map<string,record>::iterator it=m.find(records[i].name);
+		if(it==m.end()){
+			if(records[i].on){
+				m.insert(make_pair(records[i].name,records[i]));
+			}
+		}
+		else{
+			if(records[i].on&&(*it).second.on){
+				m.erase(records[i].name);
+				m.insert(make_pair(records[i].name,records[i]));
+			}
+			else if(!records[i].on&&(*it).second.on){
+				map<string,user>::iterator it2=b.find(records[i].name);
+				if(it2==b.end()){
+					user c;
+					c.name=records[i].name;
+					b.insert(make_pair(records[i].name,c));
+					it2=b.find(records[i].name);
+				}
+				(*it2).second.f((*it).second,records[i]);
+				m.erase(records[i].name);
+			}
+		}
+	}
+	vector<user> users;
+	map<string,user>::iterator it=b.begin();
+	while(it!=b.end()){
+		users.push_back((*it).second);
+		it++;
+	}
+	sort(users.begin(),users.end(),cmp2);
+	for(int i=0;i<users.size();i++){
+		user u=users[i];
+		if(u.sum<=0)continue;
+		printf("%s %02d\n",u.name.c_str(),month);
+		for(int j=0;j<u.bills.size();j++){
+			int time[3];
+			reverse(u.bills[j].start,time);
+			printf("%02d:%02d:%02d ",time[0],time[1],time[2]);
+			reverse(u.bills[j].end,time);
+			printf("%02d:%02d:%02d %d $%.2f\n",time[0],time[1],time[2],u.bills[j].end-u.bills[j].start,float(u.bills[j].fee)/100.f);
 
-    for(int i=0;i<24;i++){
-        cin>>toll[i];
-    }
-    cin>>num;
-    bool flag;
-    vector<record> records ;
-    map<string ,vector<data>> bill;
-    for(int i=0;i<num;i++){
-        string name,time,flag;
-        cin>>name>>time>>flag;
-        record temp(name,time,flag);
-        records.push_back(temp);
-    }
-    sort(records.begin(),records.end(),comp);
-
-    for(int i=0;i<records.size()-1;i++){
-        if(records[i].flag!="on-line"){
-            continue;
-        }
-        for(int j=i+1;j<records.size();j++){
-            if(records[j].name==records[i].name&&records[j].flag=="on-line"&&records[j].flag!="off-line"&&records[j].time!=records[i].time){
-                break;
-            }
-            if(records[j].name==records[i].name){
-                records[j].flag="visited";
-                data newData(records[i].name,records[i].time,records[j].time);
-                if(bill.find(records[i].name)==bill.cend()){
-                    vector<data> temp_data_vector;
-                    temp_data_vector.push_back(newData);
-                    bill[records[i].name]=temp_data_vector;
-                    break;
-                }
-                else{
-                    bill[records[i].name].push_back(newData);
-                }
-            }
-        }
-        
-    }
-
-    auto it=bill.cbegin();
-    sort(bill.cbegin(),bill.cend());
-    while(it!=bill.cend()){
-        if(it!=bill.cbegin())cout<<endl;
-        cout<<it->first<<" "<<it->second[0].start_time.substr(0,2);
-        float count=0.f;
-        for(int i=0;i<it->second.size();i++){
-            pair<int,float> temp;
-            temp=calculate(bill[it->first][i]);
-            cout<<endl<<it->second[i].start_time.substr(3)<<" "<<it->second[i].end_time.substr(3)<<" "; 
-            printf("%d $%.2f",temp.first,temp.second);
-            count+=temp.second;
-        }
-            printf("\nTotal amount: $%.2f",count);
-        it++;
-    }
+		}
+		printf("Total amount: $%.2f\n",u.sum);
+	}
+	
 }
